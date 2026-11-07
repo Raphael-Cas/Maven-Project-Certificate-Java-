@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.biblioteca</groupId>
+    <artifactId>biblioteca-jpa</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Biblioteca (JPA + Hibernate)</name>
+    <description>Console library application, migrated from plain JDBC to Jakarta Persistence (Hibernate).</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Hibernate ORM 7 requires Java 17 or newer. -->
+        <maven.compiler.release>17</maven.compiler.release>
+
+        <main.class>com.biblioteca.Main</main.class>
+
+        <!-- Dependency versions (kept in one place so they are easy to upgrade). -->
+        <hibernate.version>7.4.12.Final</hibernate.version>
+        <jakarta.persistence.version>3.2.0</jakarta.persistence.version>
+        <postgresql.version>42.7.14</postgresql.version>
+        <logback.version>1.5.38</logback.version>
+    </properties>
+
+    <dependencies>
+        <!-- Jakarta Persistence (JPA) API: @Entity, EntityManager, Persistence, etc.
+             Version 3.2.0 is the one Hibernate ORM 7.4 is built against. -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <version>${jakarta.persistence.version}</version>
+        </dependency>
+
+        <!-- Hibernate ORM: the JPA provider (implementation). Replaces all the hand-written SQL. -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate.version}</version>
+        </dependency>
+
+        <!-- PostgreSQL JDBC driver. Hibernate uses it internally; the application code no longer does. -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+
+        <!-- Logging backend (also brings SLF4J). Hibernate logs through JBoss Logging, which detects
+             Logback automatically. Configured in src/main/resources/logback.xml so Hibernate's startup
+             messages do not clutter the console menu. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.1</version>
+            </plugin>
+
+            <!-- Allows running the application with:  mvn compile exec:java -->
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.4</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- "mvn clean package" also produces target/biblioteca-jpa-1.0-SNAPSHOT.jar, an executable
+                 jar that already contains Hibernate, the PostgreSQL driver and the logging backend,
+                 so it runs with just:  java -jar target/biblioteca-jpa-1.0-SNAPSHOT.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <!-- Merge META-INF/services files (Hibernate and the JDBC driver register themselves there). -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
